@@ -1,0 +1,89 @@
+--- #Crea 1 VPC con 1 subnet, 3 nodos EC2 en aws
+- name: Creacion de la VPC 13.0.0.0/16
+  ec2_vpc_net:
+    name: Manuel-VPC
+    region: us-east-1
+    state: present
+    cidr_block: 13.0.0.0/16
+    tags:
+      module: ec2_vpc_net
+  register: vpcinfo
+- name: Creacion de una subnet 13.0.0.0/24
+  ec2_vpc_subnet:
+    region: us-east-1
+    state: present
+    vpc_id: "{{ vpcinfo.vpc.id }}"
+    cidr: 13.0.0.0/24
+    tags:
+      Name: primera-subnet
+  register: subnet
+- name: Creacion del IGW
+  ec2_vpc_igw:
+    vpc_id: "{{ vpcinfo.vpc.id }}"
+    region: us-east-1
+    state: present
+  register: igw
+- name: Creacion de la Route Table
+  ec2_vpc_route_table:
+    vpc_id: "{{ vpcinfo.vpc.id }}"
+    region: us-east-1
+    tags:
+      Name: PublicRT
+    subnets:
+      - "{{ subnet.subnet.id }}"
+    routes:
+      - dest: 0.0.0.0/0
+        gateway_id: "{{ igw.gateway_id }}"
+  register: publicRT
+- name: Creacion de un buen Security Group
+  ec2_group:
+    name: Grupo_de_Manuel
+    vpc_id: "{{ vpcinfo.vpc.id }}"
+    region: us-east-1
+    description: Tiene HTTP y SSH
+    rules:
+      - proto: tcp
+        from_port: 80
+        to_port: 80
+        cidr_ip: 0.0.0.0/0
+      - proto: tcp
+        from_port: 22
+        to_port: 22
+        cidr_ip: 0.0.0.0/0
+      - proto: tcp
+        from_port: 9200
+        to_port: 9201
+        cidr_ip: 0.0.0.0/0
+      - proto: tcp
+        from_port: 9300
+        to_port: 9301
+        cidr_ip: 0.0.0.0/0
+  register: sg
+- name: Creacion de la primera EC2
+  ec2:
+    key_name: Manuel-N-Virginia
+    region: us-east-1
+    instance_type: t2.micro
+    image: ami-a4c7edb2
+    vpc_subnet_id: "{{ subnet.subnet.id }}"
+    assign_public_ip: yes
+    count: 3
+    state: present
+    group_id: "{{ sg.group_id }}"
+    instance_tags:
+      Name: manuel
+      module: ec2
+  register: ec2s
+- name: "Asociacion del host al grupo"
+  add_host:
+    name: "{{ item.public_ip }}"
+    groups: master_nodes
+  with_items: "{{ ec2s.instances }}"
+- name: Activar el ssh de las maquinas
+  wait_for:
+    host: "{{ item.public_ip }}"
+    port: 22
+    delay: 10
+    timeout: 320
+    state: started
+  with_items: "{{ ec2s.instances }}"

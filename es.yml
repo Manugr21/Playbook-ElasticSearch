@@ -1,0 +1,14 @@
+--- # Crea un Elastic Search con 3 nodos
+- hosts: local
+  become: true
+  gather_facts: no
+  connection: local
+  roles:
+    - EC2Nodes
+- hosts: master_nodes
+  become_method: sudo
+  become: true
+  connection: ssh
+  remote_user: ec2-user
+  roles:
+    - master

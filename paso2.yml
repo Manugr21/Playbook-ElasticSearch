@@ -1,0 +1,19 @@
+--- #Configuracion del cluster de ElasticSearch
+- hosts: master_nodes
+  remote_user: ec2-user
+  become: true
+  gather_facts: no
+  roles:
+    - master
+- hosts: data_nodes1
+  remote_user: ec2-user
+  become: true
+  gather_facts: no
+  roles:
+    - node1
+- hosts: data_nodes2
+  remote_user: ec2-user
+  become: true
+  gather_facts: no
+  roles:
+    - node2
